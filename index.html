@@ -73,3 +73,239 @@
     <p>例：12こ のアメを 3人 でおなじ数ずつ分けると、1人ぶんは なんこ？ (12 ÷ 3 = ?)</p>
     <div class="controls">
       <input type="number" id="tobun-total" min="1" max="100" value="12" aria-label="等分除のドット数" />
+      <span>個を</span>
+      <input type="number" id="tobun-groups" min="1" value="3" aria-label="皿の数" />
+      <span>個の皿に</span>
+      <button id="tobun-btn">分ける</button>
+    </div>
+    <div class="workspace" id="tobun-workspace">
+      <div class="dot-container" id="tobun-dots-source"></div>
+      <div class="plate-container" id="tobun-plates"></div>
+    </div>
+    <div class="result" id="tobun-result"></div>
+  </div>
+</div>
+
+<script>
+  // =====================
+  // タブ切り替え（グローバル関数として定義）
+  // =====================
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  function showPanel(panelId){
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab[onclick="showPanel('${panelId}')"]`).classList.add('active');
+    document.getElementById(panelId).classList.add('active');
+    if(panelId === 'hoganjo'){ clearHogan(); }
+    if(panelId === 'tobunjo'){ clearTobun(); }
+  }
+
+  // =====================
+  // 包含除（重ならないボックス表示／オーバーレイ表示に対応）
+  // =====================
+  const hoganBtn = document.getElementById('hogan-btn');
+  const hoganTotalInput = document.getElementById('hogan-total');
+  const hoganGroupSizeInput = document.getElementById('hogan-group-size');
+    const hoganDotsContainer = document.getElementById('hogan-dots');
+  const hoganResult = document.getElementById('hogan-result');
+  const hoganSvg = document.getElementById('hogan-svg');
+
+  function clearHogan(){
+    hoganDotsContainer.innerHTML = '';
+    hoganSvg.innerHTML = '';
+    hoganResult.textContent = '';
+  }
+
+  // 1) 個数を選ぶと、ドットだけを表示（ボックスは出さない）
+  function renderHoganDotsOnly(n){
+    hoganDotsContainer.innerHTML = '';
+    hoganSvg.innerHTML = '';
+    hoganResult.textContent = '';
+    if(!Number.isFinite(n) || n < 1) return;
+    for(let i=0;i<n;i++){
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      hoganDotsContainer.appendChild(dot);
+    }
+  }
+  function syncHoganDotsFromInput(){
+    const n = parseInt(hoganTotalInput.value);
+    if(Number.isFinite(n) && n >= 1){ renderHoganDotsOnly(n); } else { clearHogan(); }
+  }
+  hoganTotalInput.addEventListener('input', syncHoganDotsFromInput);
+  hoganTotalInput.addEventListener('change', syncHoganDotsFromInput);
+  // 初期表示（入力欄の値に合わせてドットだけ出す）
+  syncHoganDotsFromInput();
+
+  hoganBtn.addEventListener('click', () => {
+    const total = parseInt(hoganTotalInput.value);
+    const k = parseInt(hoganGroupSizeInput.value);
+
+    if(isNaN(total) || isNaN(k) || total < 1 || k < 1){
+      hoganResult.textContent = '正しい数字を入力してください。';
+      return;
+    }
+
+    clearHogan();
+
+    const q = Math.floor(total / k), r = total % k;
+
+    // --- 重ならない：グループごとにボックスを作る ---
+    for(let g=0; g<q; g++){
+      const box = document.createElement('div');
+      box.className = 'group-box';
+      for(let i=0;i<k;i++){
+        const dot = document.createElement('div'); dot.className = 'dot'; box.appendChild(dot);
+      }
+      hoganDotsContainer.appendChild(box);
+    }
+    if(r>0){
+      const left = document.createElement('div'); left.className = 'group-box leftover';
+      for(let i=0;i<r;i++){ const d = document.createElement('div'); d.className = 'dot'; left.appendChild(d); }
+      const lab = document.createElement('div'); lab.className = 'group-label'; lab.textContent = `あまり ${r}`; left.appendChild(lab);
+      hoganDotsContainer.appendChild(left);
+    }
+
+    hoganResult.textContent = r>0 ? `${total} ÷ ${k} = ${q} あまり ${r}` : `${total} ÷ ${k} = ${q}`;
+  });
+
+  
+  // =====================
+  // 等分除（変更なし／余りは上部に残す）
+  // =====================
+  const tobunBtn = document.getElementById('tobun-btn');
+  const tobunTotalInput = document.getElementById('tobun-total');
+  const tobunGroupsInput = document.getElementById('tobun-groups');
+  const tobunSourceContainer = document.getElementById('tobun-dots-source');
+  const tobunPlatesContainer = document.getElementById('tobun-plates');
+  const tobunResult = document.getElementById('tobun-result');
+
+  function clearTobun(){
+    tobunSourceContainer.innerHTML = '';
+    tobunPlatesContainer.innerHTML = '';
+    tobunResult.textContent = '';
+  }
+
+  // 1) 等分除：個数入力でドットだけ表示
+  function renderTobunDotsOnly(n){
+    if(!Number.isFinite(n) || n < 1) return;
+    for(let i=0;i<n;i++){
+      const d = document.createElement('div');
+      d.className = 'dot';
+      tobunSourceContainer.appendChild(d);
+    }
+  }
+
+  // 2) 等分除：皿の数入力で皿だけ表示
+  function renderTobunPlatesOnly(g){
+    if(!Number.isFinite(g) || g < 1) return;
+    for(let i=0;i<g;i++){
+      const p = document.createElement('div');
+      p.className = 'plate';
+      tobunPlatesContainer.appendChild(p);
+    }
+  }
+
+  // 入力に応じて都度プレレンダ（実行前は配らない）
+  function syncTobunFromInputs(){
+    // いったん領域をクリアしてから、それぞれ独立に表示
+    tobunSourceContainer.innerHTML = '';
+    tobunPlatesContainer.innerHTML = '';
+    tobunResult.textContent = '';
+    const n = parseInt(tobunTotalInput.value);
+    const g = parseInt(tobunGroupsInput.value);
+    if(Number.isFinite(n) && n >= 1) renderTobunDotsOnly(n);
+    if(Number.isFinite(g) && g >= 1) renderTobunPlatesOnly(g);
+  }
+
+  // 入力変更で即時反映
+  tobunTotalInput.addEventListener('input', syncTobunFromInputs);
+  tobunTotalInput.addEventListener('change', syncTobunFromInputs);
+  tobunGroupsInput.addEventListener('input', syncTobunFromInputs);
+  tobunGroupsInput.addEventListener('change', syncTobunFromInputs);
+
+  // 初期状態：現在の入力値に合わせて、ドット／皿を表示（配布はしない）
+  syncTobunFromInputs();
+
+  tobunBtn.addEventListener('click', () => {
+    const total = parseInt(tobunTotalInput.value);
+    const groups = parseInt(tobunGroupsInput.value);
+    if(isNaN(total) || isNaN(groups) || total < 1 || groups < 1){
+      tobunResult.textContent = '正しい数字を入力してください。';
+      return;
+    }
+
+    clearTobun();
+    tobunBtn.disabled = true;
+
+    // 皿生成
+    const plates = [];
+    for(let i=0;i<groups;i++){
+      const p = document.createElement('div'); p.className = 'plate'; tobunPlatesContainer.appendChild(p); plates.push(p);
+    }
+
+    // ドット生成（ソース）
+    const dots = [];
+    for(let i=0;i<total;i++){ const d = document.createElement('div'); d.className = 'dot'; tobunSourceContainer.appendChild(d); dots.push(d); }
+
+    // 分配（余りは皿に入れない／上部に残す）
+    const per = Math.floor(total / groups); const rem = total % groups; const nToPlates = per * groups;
+
+    let idx = 0; const perPlate = new Array(groups).fill(0);
+    function moveDot(){
+      if(idx >= total){
+        let text = `${total} ÷ ${groups} = ${per}`; if(rem > 0) text += ` あまり ${rem}`; tobunResult.textContent = text; tobunBtn.disabled = false; return;
+      }
+      const dot = dots[idx]; const workspaceRect = document.getElementById('tobun-workspace').getBoundingClientRect(); const dotRect = dot.getBoundingClientRect();
+      if(idx < nToPlates){
+        const pi = idx % groups; const plate = plates[pi]; const plateRect = plate.getBoundingClientRect();
+        const angle = (perPlate[pi] * 360 / Math.max(1, per)) * (Math.PI/180); const radius = plate.offsetWidth / 4;
+        const targetX = (plateRect.left - workspaceRect.left + plate.offsetWidth/2 - dot.offsetWidth/2) + Math.cos(angle)*radius;
+        const targetY = (plateRect.top  - workspaceRect.top  + plate.offsetHeight/2 - dot.offsetHeight/2) + Math.sin(angle)*radius;
+        const initialX = dotRect.left - workspaceRect.left; const initialY = dotRect.top  - workspaceRect.top;
+        dot.style.transform = `translate(${targetX-initialX}px, ${targetY-initialY}px)`; perPlate[pi]++;
+      } else {
+        // あまり：移動させずに上部に残す
+      }
+      idx++; setTimeout(moveDot, 150);
+    }
+    setTimeout(moveDot, 60);
+  });
+
+  // =====================
+  // ちいさな計算ヘルパー（テスト用）
+  // =====================
+  function computeContain(n,k){ return { q: Math.floor(n/k), r: n%k }; }
+  function computePart(n,k){ return { perGroup: Math.floor(n/k), remainder: n%k }; }
+
+  // =====================
+  // 簡易テスト（コンソールに出力）
+  // =====================
+  ;(function runSelfTests(){
+    try{
+      console.log('[TEST] computeContain');
+      console.assert(JSON.stringify(computeContain(12,3)) === JSON.stringify({q:4,r:0}), '12÷3 → 4,0');
+      console.assert(JSON.stringify(computeContain(13,3)) === JSON.stringify({q:4,r:1}), '13÷3 → 4,1');
+      console.assert(JSON.stringify(computeContain(0,3))  === JSON.stringify({q:0,r:0}), '0÷3 → 0,0');
+      console.assert(JSON.stringify(computeContain(5,10)) === JSON.stringify({q:0,r:5}), '5÷10 → 0,5');
+      console.assert(JSON.stringify(computeContain(100,7))=== JSON.stringify({q:14,r:2}), '100÷7 → 14,2');
+      console.assert(JSON.stringify(computeContain(9,1)) === JSON.stringify({q:9,r:0}), '9÷1 → 9,0');
+
+      console.log('[TEST] computePart');
+      console.assert(JSON.stringify(computePart(12,3)) === JSON.stringify({perGroup:4,remainder:0}), '12÷3 → 4,0');
+      console.assert(JSON.stringify(computePart(13,3)) === JSON.stringify({perGroup:4,remainder:1}), '13÷3 → 4,1');
+      console.assert(JSON.stringify(computePart(5,10)) === JSON.stringify({perGroup:0,remainder:5}), '5÷10 → 0,5');
+      console.assert(JSON.stringify(computePart(100,7))=== JSON.stringify({perGroup:14,remainder:2}), '100÷7 → 14,2');
+      console.assert(JSON.stringify(computePart(12,5)) === JSON.stringify({perGroup:2,remainder:2}), '12÷5 → 2,2');
+      console.assert(JSON.stringify(computePart(7,4))  === JSON.stringify({perGroup:1,remainder:3}), '7÷4 → 1,3');
+      console.assert(JSON.stringify(computePart(1,3))  === JSON.stringify({perGroup:0,remainder:1}), '1÷3 → 0,1');
+      console.assert(JSON.stringify(computePart(9,1))  === JSON.stringify({perGroup:9,remainder:0}), '9÷1 → 9,0');
+      console.assert(JSON.stringify(computePart(10,10)) === JSON.stringify({perGroup:1,remainder:0}), '10÷10 → 1,0');
+      console.assert(JSON.stringify(computePart(11,10)) === JSON.stringify({perGroup:1,remainder:1}), '11÷10 → 1,1');
+      console.log('✅ Self-tests passed');
+    }catch(e){ console.error('Tests failed:', e); }
+  })();
+</script>
+</body>
+</html>
