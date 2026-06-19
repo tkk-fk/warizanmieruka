@@ -47,12 +47,12 @@
   </header>
 
   <div class="tabs">
-    <button class="tab" onclick="showPanel('tobunjo')">等分除 (とうぶんじょ)</button>
-    <button class="tab active" onclick="showPanel('hoganjo')">包含除 (ほうがんじょ)</button>
+    <button class="tab active" onclick="showPanel('tobunjo')">等分除 (とうぶんじょ)</button>
+    <button class="tab" onclick="showPanel('hoganjo')">包含除 (ほうがんじょ)</button>
   </div>
 
   <!-- 包含除 -->
-  <div id="hoganjo" class="panel active">
+  <div id="hoganjo" class="panel">
     <p>例：12こ のアメを 3こずつ ふくろにいれると、ふくろは いくついる？ (12 ÷ 3 = ?)</p>
     <div class="controls">
       <input type="number" id="hogan-total" min="1" value="12" aria-label="包含除のドット数" />
@@ -69,7 +69,7 @@
   </div>
 
   <!-- 等分除 -->
-  <div id="tobunjo" class="panel">
+  <div id="tobunjo" class="panel active">
     <p>例：12こ のアメを 3人 でおなじ数ずつ分けると、1人ぶんは なんこ？ (12 ÷ 3 = ?)</p>
     <div class="controls">
       <input type="number" id="tobun-total" min="1" max="100" value="12" aria-label="等分除のドット数" />
